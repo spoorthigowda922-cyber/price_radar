@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ride Fare Radar</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: system-ui, sans-serif; background: #0a0f1e; color: #e2e8f0; padding: 20px; }
+  .wrap { max-width: 1000px; margin: auto; }
+  h1 { font-size: 26px; } h1 span { color: #38bdf8; }
+  .sub { color: #64748b; margin-bottom: 18px; }
+  .card { background: #111a2e; border: 1px solid #1e2a45; border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+  input, select { background: #0a0f1e; border: 1px solid #1e2a45; color: #e2e8f0;
+                  border-radius: 10px; padding: 11px; width: 100%; font-size: 15px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .row > div { flex: 1; min-width: 180px; }
+  label { font-size: 12px; color: #64748b; display: block; margin-bottom: 5px; }
+  button { background: #38bdf8; color: #0a0f1e; border: 0; font-weight: 700;
+           border-radius: 10px; padding: 12px 20px; cursor: pointer; font-size: 15px; }
+  button.sec { background: transparent; color: #94a3b8; border: 1px solid #1e2a45; padding: 8px 14px; font-size: 13px; }
+  button.danger { background: transparent; color: #fb7185; border: 1px solid #fb718540; padding: 8px 14px; font-size: 13px; }
+  button.open { background: #1e2a45; color: #7dd3fc; font-weight: 600; font-size: 13px;
+                width: 100%; padding: 10px; margin-top: 0; }
+  button.open:hover { background: #38bdf8; color: #0a0f1e; }
+  .rtypes { display: flex; gap: 8px; margin-bottom: 12px; }
+  .rtype { flex: 1; text-align: center; padding: 9px; border: 1px solid #1e2a45; border-radius: 10px; cursor: pointer; font-size: 14px; }
+  .rtype.on { border-color: #38bdf8; color: #38bdf8; background: #38bdf815; }
+  .err { color: #fb7185; background: #fb718515; padding: 10px; border-radius: 10px; margin-bottom: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .fare { font-size: 30px; font-weight: 800; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 99px; display: inline-block; margin: 2px 3px 2px 0; }
+  .b-cheap { background: #34d39930; color: #34d399; }  .b-fast { background: #38bdf830; color: #38bdf8; }
+  .b-best { background: #a78bfa30; color: #a78bfa; }   .b-surge { background: #fb923c30; color: #fb923c; }
+  .b-demo { background: #fbbf2430; color: #fbbf24; }
+  .meta { color: #94a3b8; font-size: 13px; margin-top: 8px; line-height: 1.7; }
+  .est { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .livebar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+  .livebar .dot { width: 8px; height: 8px; background: #34d399; border-radius: 50%; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { color: #64748b; text-align: left; padding: 8px; border-bottom: 1px solid #1e2a45; }
+  td { padding: 8px; border-bottom: 1px solid #1e2a4555; }
+  .del { color: #fb7185; cursor: pointer; background: none; border: 0; font-size: 15px; padding: 2px 6px; }
+  .insight { font-size: 13px; background: #0a0f1e; border-radius: 10px; padding: 9px 13px; margin-top: 6px; }
+  .hide { display: none; }
+  a { color: #38bdf8; }
+  .vstats { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+  .vstats > div { flex: 1; min-width: 100px; }
+  .vstats b { font-size: 18px; }
+  .btnrow { display: flex; gap: 6px; margin-top: 10px; }
+  .btnrow a { flex: 1; text-decoration: none; }
+  .note { font-size: 11px; color: #64748b; margin-top: 6px; }
+  @media(max-width:600px){ .fare{font-size:24px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div>
+      <h1>🚦 RIDE FARE <span>RADAR</span></h1>
+      <p class="sub">Compare. Detect. Save. — Team DEPTH MINDS</p>
+    </div>
+    <span class="badge b-demo">● DEMO DATA / SIMULATED LIVE QUOTES</span>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="card">
+    <div class="row">
+      <div><label>📍 Pickup</label><input id="pickup" value="Bangalore Palace"></div>
+      <div><label>🏁 Destination</label><input id="destination" value="Orion Mall"></div>
+    </div>
+    <label>🧭 Ride type</label>
+    <div class="rtypes" id="rtypes">
+      <div class="rtype" data-v="bike">🛵 Bike</div>
+      <div class="rtype on" data-v="auto">🛺 Auto</div>
+      <div class="rtype" data-v="mini">🚗 Mini</div>
+      <div class="rtype" data-v="sedan">🚙 Sedan</div>
+    </div>
+    <button onclick="compare()">🔍 COMPARE FARES</button>
+  </div>
+
+  <div id="error" class="err hide"></div>
+
+  <!-- RESULTS -->
+  <div id="results" class="hide">
+    <div class="livebar">
+      <h2 style="font-size:18px">LIVE RIDE COMPARISON</h2>
+      <span class="dot"></span><span style="color:#34d399;font-size:12px;font-weight:700">LIVE</span>
+      <span style="color:#64748b;font-size:12px">Last updated: <span id="updated"></span></span>
+      <span style="color:#64748b;font-size:12px">Auto-refresh in <b id="count" style="color:#38bdf8">15</b>s</span>
+      <button class="sec" onclick="compare()">🔄 Refresh Quotes</button>
+    </div>
+    <div class="grid" id="cards"></div>
+    <div id="insights" style="margin-top:14px"></div>
+    <div class="card" id="variation" style="margin-top:14px"></div>
+    <div class="card" style="margin-top:14px">
+      <h3 style="font-size:15px;margin-bottom:10px">📈 Fare Trend (your history)</h3>
+      <canvas id="chart" height="90"></canvas>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <h3 style="font-size:15px">📜 Price History</h3>
+      <button class="danger" onclick="clearAll()">🗑 Clear all</button>
+    </div>
+    <div style="overflow-x:auto"><table id="htable"></table></div>
+  </div>
+
+  <p class="note" style="margin-top:14px;text-align:center">
+    Quotes are simulated (demo mode) — tap 📱 App / 🌐 Web on any card to verify the
+    real price on the provider. Prefill works best on a phone with the provider app installed.
+  </p>
+</div>
+
+<script>
+let rideType = "auto", chart = null, timer = null, secs = 15;
+
+// ride type selector
+document.getElementById("rtypes").onclick = e => {
+  if (!e.target.dataset.v) return;
+  rideType = e.target.dataset.v;
+  document.querySelectorAll(".rtype").forEach(r => r.classList.toggle("on", r === e.target));
+};
+
+async function compare() {
+  const errBox = document.getElementById("error");
+  errBox.classList.add("hide");
+  try {
+    const res = await fetch("/api/compare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pickup: document.getElementById("pickup").value,
+        destination: document.getElementById("destination").value,
+        ride_type: rideType,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errBox.textContent = "⚠ " + data.error; errBox.classList.remove("hide"); return; }
+    render(data);
+    resetTimer();
+  } catch (e) {
+    errBox.textContent = "⚠ Cannot reach backend. Is app.py running?";
+    errBox.classList.remove("hide");
+  }
+}
+
+function render(d) {
+  document.getElementById("results").classList.remove("hide");
+  document.getElementById("updated").textContent = d.timestamp;
+
+  // provider cards with app + web deep links
+  document.getElementById("cards").innerHTML = d.quotes.map(q => {
+    if (q.status !== "available")
+      return `<div class="card"><b>${q.provider}</b>
+        <div class="meta" style="color:#fbbf24">⚠ Temporarily unavailable — try refreshing</div>
+        <div class="btnrow">
+          <a href="${d.links[q.provider + "_app"] || d.links[q.provider] || "#"}" target="_blank">
+            <button class="open">📱 Open App</button></a>
+          <a href="${d.links[q.provider] || "#"}" target="_blank">
+            <button class="open">🌐 Open Web</button></a>
+        </div>
+      </div>`;
+    const badges =
+      (q.provider === d.cheapest ? '<span class="badge b-cheap">💰 CHEAPEST</span>' : "") +
+      (q.provider === d.fastest ? '<span class="badge b-fast">⚡ FASTEST</span>' : "") +
+      (q.provider === d.best ? '<span class="badge b-best">🏆 RECOMMENDED</span>' : "") +
+      (q.surge >= 1.3 ? `<span class="badge b-surge">🟠 SURGE ${q.surge}x</span>` : "");
+    return `<div class="card">
+      <b>${q.provider}</b>
+      <div class="fare">₹${q.fare}</div>
+      <div class="est">estimate — verify live price on ${q.provider}</div>
+      <div style="margin:6px 0">${badges}</div>
+      <div class="meta">ETA: ${q.eta} min<br>Distance: ${q.distance_km} km<br>
+        Surge: ${q.surge}x<br>Value score: ${Math.round(q.score * 100)}/100</div>
+      <div class="btnrow">
+        <a href="${d.links[q.provider + "_app"] || d.links[q.provider] || "#"}" target="_blank">
+          <button class="open">📱 Open App</button></a>
+        <a href="${d.links[q.provider] || "#"}" target="_blank">
+          <button class="open">🌐 Open Web</button></a>
+      </div>
+    </div>`;
+  }).join("");
+
+  // insights
+  document.getElementById("insights").innerHTML =
+    d.insights.map(t => `<div class="insight">${t}</div>`).join("");
+
+  // variation panel
+  const v = d.variation;
+  document.getElementById("variation").innerHTML = `
+    <h3 style="font-size:15px;margin-bottom:8px">🔎 PRICE VARIATION DETECTED</h3>
+    <p style="font-size:13px;color:#94a3b8">The same trip currently shows a
+      <b style="color:#fbbf24">₹${v.diff} difference</b> between providers.</p>
+    <div class="vstats">
+      <div><label>Highest fare</label><b style="color:#fb7185">₹${v.max}</b></div>
+      <div><label>Lowest fare</label><b style="color:#34d399">₹${v.min}</b></div>
+      <div><label>Difference</label><b style="color:#fbbf24">₹${v.diff}</b></div>
+      <div><label>Variation</label><b style="color:#fbbf24">${v.pct}%</b></div>
+    </div>
+    <p style="margin-top:12px;font-size:12px">
+      🗺️ <a href="${d.links.maps_check}" target="_blank">Verify the real route & distance on Google Maps →</a>
+    </p>`;
+
+  loadTrends();
+  loadHistory();
+}
+
+// ── trend chart ──
+async function loadTrends() {
+  const rows = await (await fetch("/api/trends")).json();
+  const labels = [...new Set(rows.map(r => r.ts.slice(11, 16)))];
+  const colors = { Uber: "#e2e8f0", Ola: "#7dd87d", Rapido: "#f7d94c" };
+  const datasets = Object.keys(colors).map(p => ({
+    label: p, borderColor: colors[p],
+    data: labels.map(t => {
+      const m = rows.filter(r => r.provider === p && r.ts.slice(11, 16) === t);
+      return m.length ? m[m.length - 1].fare : null;
+    }),
+    tension: 0.3, spanGaps: true,
+  }));
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById("chart"), {
+    type: "line", data: { labels, datasets },
+    options: {
+      plugins: { legend: { labels: { color: "#94a3b8" } } },
+      scales: {
+        x: { ticks: { color: "#64748b" } },
+        y: { ticks: { color: "#64748b", callback: v => "₹" + v } },
+      },
+    },
+  });
+}
+
+// ── history table ──
+async function loadHistory() {
+  const rows = await (await fetch("/api/history")).json();
+  const groups = {};
+  rows.forEach(r => {
+    (groups[r.ts] = groups[r.ts] || {
+      ts: r.ts, pickup: r.pickup, destination: r.destination, ride_type: r.ride_type,
+      ids: [], fares: {},
+    });
+    groups[r.ts].fares[r.provider] = r.fare;
+    groups[r.ts].ids.push(r.id);
+  });
+  const g = Object.values(groups);
+  document.getElementById("htable").innerHTML =
+    `<tr><th>Time</th><th>Route</th><th>Type</th><th>Uber</th><th>Ola</th><th>Rapido</th><th></th></tr>` +
+    (g.map(x => `<tr>
+      <td>${x.ts.slice(11, 16)}</td>
+      <td>${x.pickup} → ${x.destination}</td>
+      <td style="text-transform:capitalize">${x.ride_type}</td>
+      <td>${x.fares.Uber ? "₹" + x.fares.Uber : "⚠"}</td>
+      <td>${x.fares.Ola ? "₹" + x.fares.Ola : "⚠"}</td>
+      <td>${x.fares.Rapido ? "₹" + x.fares.Rapido : "⚠"}</td>
+      <td><button class="del" title="Delete this record" onclick="delCompare('${x.ts}')">🗑</button></td>
+    </tr>`).join("") ||
+    "<tr><td colspan='7' style='color:#64748b'>No history yet — run a comparison.</td></tr>");
+}
+
+async function delCompare(ts) {
+  const rows = await (await fetch("/api/history")).json();
+  await Promise.all(rows.filter(r => r.ts === ts)
+    .map(r => fetch("/api/history/" + r.id, { method: "DELETE" })));
+  loadHistory(); loadTrends();
+}
+
+async function clearAll() {
+  if (!confirm("Delete ALL history records?")) return;
+  await fetch("/api/history", { method: "DELETE" });
+  loadHistory(); loadTrends();
+}
+
+// ── auto-refresh countdown (15s) ──
+function resetTimer() {
+  clearInterval(timer); secs = 15;
+  timer = setInterval(() => {
+    secs--;
+    document.getElementById("count").textContent = secs;
+    if (secs <= 0) compare();
+  }, 1000);
+}
+
+loadHistory(); loadTrends();
+</script>
+</body>
+</html>
